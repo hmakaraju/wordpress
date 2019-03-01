@@ -144,6 +144,7 @@ Resources:
       Tags:
         - Key: Name
           Value: Candidate-OSL4FYVZ3y
+          PropagateAtLaunch: true
   wpELB:
     Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
     Properties:
