@@ -141,6 +141,9 @@ Resources:
         - !Ref wpELB
       MaxSize: 2
       MinSize: 1
+      Tags:
+        - Key: Name
+          Value: Candidate-OSL4FYVZ3y
   wpELB:
     Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
     Properties:
@@ -161,7 +164,11 @@ Resources:
         UnhealthyThreshold: 5
         Interval: 30
         Timeout: 3
-        Target: HTTP:80/
+        Target: TCP:80
       Tags:
         - Key: Name
           Value: wpelb
+Outputs:
+  WebsiteURL:
+    Description: Wordpress URL
+    Value: !GetAtt wpELB.DNSName
