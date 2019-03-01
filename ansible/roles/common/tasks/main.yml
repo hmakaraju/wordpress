@@ -1,9 +1,14 @@
 ---
+- name: Get the mysql repository
+  yum:
+    name: http://repo.mysql.com/mysql-community-release-el7-5.noarch.rpm
+    state: present
 - name: Install the Apache Web Server, PHP & MySQL
   yum:
-    name: "{{ item }}"
+    name: "{{ packages }}"
     state: latest
-  with_items:
+  vars:
+    packages:
     - httpd
     - php
     - php-mysql
@@ -11,24 +16,36 @@
     - mysql-devel
     - gcc
 
+- name: Install pip
+  easy_install:
+    name: pip
+    state: latest
+
 - name: Install MySQL-python
   pip:
     name: MySQL-python
-  notify:
-  - "restart httpd & mysqld"
 
-  - name: Set root user password
-    mysql_user:
-      user: root
-      password: "{{ mysql_root_password }}"
-      check_implicit_admin: yes
-      login_user: root
-      login_password: ""
-      state: present
+- name: Start MySQL Server
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - httpd
+    - mysqld
 
-  - name: Create blog database
-    mysql_db:
-      name: "{{ wordpress_db_name }}"
-      state: present
-      login_user: root
-      login_password: "{{ mysql_root_password }}"
+- name: Set root user password
+  mysql_user:
+    user: root
+    password: "{{ mysql_root_password }}"
+    check_implicit_admin: yes
+    login_user: root
+    login_password: ""
+    state: present
+
+- name: Create blog database
+  mysql_db:
+    name: "{{ wordpress_db_name }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"

@@ -1,5 +1,5 @@
 ---
-- name: restart httpd & mysqld
+- name: restart httpd
   service:
     name: "{{ item }}"
     state: "restarted"

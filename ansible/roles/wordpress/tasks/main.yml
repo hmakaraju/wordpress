@@ -1,12 +1,12 @@
 ---
 - name: Install wordpress
   get_url:
-    url: http://wordpress.org/latest.tar.gz
+    url: http://wordpress.org/wordpress-5.1.tar.gz
     dest: /var/www/html
 
 - name: Unarchive wordpress
   unarchive:
-    src: /var/www/html/latest.tar.gz
+    src: /var/www/html/wordpress-5.1.tar.gz
     dest: /var/www/html
 
 - name: Copy the wp-config.php

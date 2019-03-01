@@ -1,8 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
-  image_id:
-    Description: Amazon Machine Image
-    Type: String
   InstanceType:
     Description: Type of Instance
     Type: String
@@ -10,10 +7,6 @@ Parameters:
       - t2.micro
       - t2.small
     Default: t2.small
-  KeyName:
-    Description: Pem key to ssh the box
-    Type: AWS::EC2::KeyPair::KeyName
-    Default:
   DBName:
     Description: Database username
     Type: String
@@ -25,6 +18,20 @@ Parameters:
     MinLength: 8
     MaxLength: 41
     AllowedPattern: ^[a-zA-Z0-9]*$
+Mappings:
+  RegionMap:
+    us-east-1:
+      imageId: ami-02da3a138888ced85
+      KeyName: Candidate-OSL4FYVZ3y-east-1
+    us-east-2:
+      imageId: ami-c55673a0
+      KeyName: Candidate-OSL4FYVZ3y-east-2
+    us-west-1:
+      imageId: ami-165a0876
+      KeyName: Candidate-OSL4FYVZ3y-west-1
+    us-west-2:
+      imageId: ami-f173cc91
+      KeyName: Candidate-OSL4FYVZ3y-west-2
 Resources:
   VPC:
     Type: 'AWS::EC2::VPC'
@@ -40,9 +47,10 @@ Resources:
     Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId:
-        Ref: VPC
+        !Ref VPC
       CidrBlock: 10.201.92.0/25
       AvailabilityZone: 'us-east-1a'
+      MapPublicIpOnLaunch: yes
       Tags:
         - Key: Name
           Value: wpSubnet-zone1
@@ -50,7 +58,7 @@ Resources:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: Allow http and ssh connection
-      SecurityGroupEgress:
+      SecurityGroupIngress:
       - IpProtocol: tcp
         FromPort: 80
         ToPort: 80
@@ -63,7 +71,7 @@ Resources:
         - Key: Name
           Value: wp-SG
       VpcId:
-        Ref: VPC
+        !Ref VPC
   InternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
@@ -74,7 +82,7 @@ Resources:
     Type: 'AWS::EC2::RouteTable'
     Properties:
       VpcId:
-        Ref: VPC
+        !Ref VPC
       Tags:
         - Key: Name
           Value: wpRTB
@@ -82,65 +90,66 @@ Resources:
     Type: 'AWS::EC2::Route'
     Properties:
       RouteTableId:
-        Ref: RouteTable
+        !Ref RouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId:
-        Ref: InternetGateway
+        !Ref InternetGateway
   VpcGatewayAtt:
     Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
       InternetGatewayId:
-        Ref: InternetGateway
+        !Ref InternetGateway
       VpcId:
-        Ref: VPC
+        !Ref VPC
   SubnetRTBAss:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       RouteTableId:
-        Ref: RouteTable
+        !Ref RouteTable
       SubnetId:
-        Ref: Subnet
+        !Ref Subnet
   wpLC:
     Type: 'AWS::AutoScaling::LaunchConfiguration'
     Properties:
       SecurityGroups:
-        Ref: SecurityGroup
-      IamInstanceProfile:
-      InstanceType: !Ref: InstanceType
-      ImageId: !Ref: image_id
+        - !Ref SecurityGroup
+      InstanceType: !Ref InstanceType
+      KeyName: !FindInMap [RegionMap, !Ref "AWS::Region", KeyName]
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", imageId]
       UserData:
-        Fn::Base64: !Sub
-          - |+
+        Fn::Base64:
+          !Sub |
             #!/bin/bash -v
-            yum-config-manager --enable epel
+            rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
             yum install -y git ansible
+            curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+            python get-pip.py
             git clone https://github.com/hmakaraju/wordpress.git /tmp/wordpress
             echo "---" > /etc/extravars.yml
             echo "wordpress_db_name: ${DBName}" >> /etc/extravars.yml
             echo "mysql_root_password: ${DBPassword}" >> /etc/extravars.yml
             ANSIBLE_CONFIG=/tmp/wordpress/ansible/ansible.cfg HOME=/root ansible-playbook -i /tmp/wordpress/ansible/localhost /tmp/wordpress/ansible/wordpress.yml -e @/etc/extravars.yml
-          -
   wpASG:
     Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:
-      AutoScalingGroupName:
+      AutoScalingGroupName: wpasg
       VPCZoneIdentifier:
-        Ref: Subnet
+        - !Ref Subnet
       LaunchConfigurationName:
-        Ref: wpLC
+        !Ref wpLC
       LoadBalancerNames:
-        Ref: wpELB
+        - !Ref wpELB
       MaxSize: 2
       MinSize: 1
   wpELB:
     Type: 'AWS::ElasticLoadBalancing::LoadBalancer'
     Properties:
       Subnets:
-        Ref: Subnet
+        - !Ref Subnet
       CrossZone: true
       LoadBalancerName: wpelb
       SecurityGroups:
-        Ref: SecurityGroup
+        - !Ref SecurityGroup
       Scheme: internet-facing
       Listeners:
       - LoadBalancerPort: 80
@@ -149,6 +158,7 @@ Resources:
         Protocol: TCP
       HealthCheck:
         HealthyThreshold: 3
+        UnhealthyThreshold: 5
         Interval: 30
         Timeout: 3
         Target: HTTP:80/
