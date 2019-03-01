@@ -1,0 +1,34 @@
+---
+- name: Install the Apache Web Server, PHP & MySQL
+  yum:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - httpd
+    - php
+    - php-mysql
+    - mysql-server
+    - mysql-devel
+    - gcc
+
+- name: Install MySQL-python
+  pip:
+    name: MySQL-python
+  notify:
+  - "restart httpd & mysqld"
+
+  - name: Set root user password
+    mysql_user:
+      user: root
+      password: "{{ mysql_root_password }}"
+      check_implicit_admin: yes
+      login_user: root
+      login_password: ""
+      state: present
+
+  - name: Create blog database
+    mysql_db:
+      name: "{{ wordpress_db_name }}"
+      state: present
+      login_user: root
+      login_password: "{{ mysql_root_password }}"
