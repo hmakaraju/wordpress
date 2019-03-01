@@ -4,7 +4,7 @@
 * This is the infrastructure for Wordpress with high available and scalable platform.
 
 ##Architecture:
-  ![alt text] (images/Architecture.png?raw=true "Achitecture Diagram")
+![Screenshot](images/Architecture.png)
 
 ### Follwing resource are created using cloudformation template.
 - VPC
