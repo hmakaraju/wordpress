@@ -172,4 +172,9 @@ Resources:
 Outputs:
   WebsiteURL:
     Description: Wordpress URL
-    Value: !GetAtt wpELB.DNSName
+    Value:
+      !Join
+        - ''
+        - - 'http://'
+          - !GetAtt wpELB.DNSName
+          - '/wordpress'
